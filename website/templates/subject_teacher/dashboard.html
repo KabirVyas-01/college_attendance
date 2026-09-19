@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Subject Teacher Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+  <div>
+    <h4 class="fw-bold text-dark mb-0">Subject Teacher Portal</h4>
+    <p class="text-muted small mb-0">Teacher: <strong>{{ faculty.name }}</strong> (ID: {{ faculty.faculty_id }} | Dept: {{ faculty.dept_code }})</p>
+  </div>
+</div>
+
+<!-- Assigned Subjects Cards -->
+<div class="row g-3">
+  {% for s in subjects %}
+    <div class="col-lg-6">
+      <div class="card card-white p-3 h-100 d-flex flex-column justify-content-between">
+        <div>
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <span class="badge-neutral mb-1">{{ s.dept_code }}</span>
+              <h5 class="fw-bold text-dark mb-0">{{ s.subject_name }}</h5>
+              <div class="text-muted small">Subject ID: #{{ s.subject_id }}</div>
+            </div>
+            <button class="btn btn-sm btn-light-min py-1 px-2" data-bs-toggle="modal" data-bs-target="#editPlannedModal{{ s.subject_id }}">
+              Edit Planned
+            </button>
+          </div>
+
+          <div class="row g-2 text-center my-3">
+            <div class="col-6">
+              <div class="p-2 border rounded bg-light">
+                <div class="fs-5 fw-bold text-dark">{{ s.conducted_count }}</div>
+                <div class="text-muted" style="font-size: 0.72rem; text-transform: uppercase;">Conducted So Far</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="p-2 border rounded bg-light">
+                <div class="fs-5 fw-bold text-dark">{{ s.total_planned_lectures }}</div>
+                <div class="text-muted" style="font-size: 0.72rem; text-transform: uppercase;">approx. Planned</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 pt-2 border-top">
+          <a href="{{ url_for('subject_teacher_mark_attendance', subject_id=s.subject_id) }}" class="btn btn-sm btn-dark-min flex-grow-1 text-center">
+            Mark Attendance
+          </a>
+          <a href="{{ url_for('subject_teacher_subject_roster', subject_id=s.subject_id) }}" class="btn btn-sm btn-light-min flex-grow-1 text-center">
+            View Attendance Sheet
+          </a>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Edit Planned Lectures Modal -->
+    <div class="modal fade" id="editPlannedModal{{ s.subject_id }}" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border card-white">
+          <div class="modal-header border-bottom py-2">
+            <h6 class="modal-title fw-bold text-dark">Edit Planned Lectures: {{ s.subject_name }}</h6>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form action="{{ url_for('subject_teacher_update_planned', subject_id=s.subject_id) }}" method="POST">
+            <div class="modal-body p-3">
+              <label for="new_planned_{{ s.subject_id }}" class="form-label small text-muted">Total approx. planned lectures in semester</label>
+              <input type="number" class="form-control form-control-sm" id="new_planned_{{ s.subject_id }}" name="planned" value="{{ s.total_planned_lectures }}" min="1" required>
+            </div>
+            <div class="modal-footer border-top py-2">
+              <button type="button" class="btn btn-sm btn-light-min" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-sm btn-dark-min">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  {% else %}
+    <div class="col-12">
+      <div class="card card-white p-4 text-center">
+        <h6 class="fw-bold text-dark">No Assigned Subjects</h6>
+        <p class="text-muted small mb-0">You currently do not have any subjects assigned by your Department Head Teacher.</p>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

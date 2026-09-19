@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Head Teacher Dashboard - {{ faculty.dept_code }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+  <div>
+    <h4 class="fw-bold text-dark mb-0">Department Administration</h4>
+    <p class="text-muted small mb-0">
+      Head Teacher: <strong>{{ faculty.name }}</strong> | Dept: <strong>{{ faculty.dept_code }}</strong> (Faculty ID: {{ faculty.faculty_id }})
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('head_teacher_faculty') }}" class="btn btn-sm btn-light-min">+ Add Faculty</a>
+    <a href="{{ url_for('head_teacher_subjects') }}" class="btn btn-sm btn-light-min">+ Add Subject</a>
+    <a href="{{ url_for('head_teacher_students') }}" class="btn btn-sm btn-dark-min">+ Enroll Student</a>
+  </div>
+</div>
+
+<!-- Quick Stat Widgets -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="stat-box">
+      <div class="val">{{ faculty_list|length }}</div>
+      <div class="lbl">Faculty Members</div>
+      <div class="small mt-2"><a href="{{ url_for('head_teacher_faculty') }}" class="text-decoration-none text-muted">Manage Faculty &rarr;</a></div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="stat-box">
+      <div class="val">{{ subjects_list|length }}</div>
+      <div class="lbl">Curriculum Subjects</div>
+      <div class="small mt-2"><a href="{{ url_for('head_teacher_subjects') }}" class="text-decoration-none text-muted">Manage Subjects &rarr;</a></div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="stat-box">
+      <div class="val">{{ students_list|length }}</div>
+      <div class="lbl">Enrolled Students</div>
+      <div class="small mt-2"><a href="{{ url_for('head_teacher_students') }}" class="text-decoration-none text-muted">Manage Students &rarr;</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- Tables Grid -->
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="card card-white p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold text-dark mb-0">Subjects & Teachers</h6>
+        <a href="{{ url_for('head_teacher_subjects') }}" class="small text-muted text-decoration-none">View All &rarr;</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-minimal">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Teacher</th>
+              <th>Planned</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in subjects_list[:5] %}
+              <tr>
+                <td class="fw-semibold">{{ s.subject_name }}</td>
+                <td>
+                  {% if s.teacher_name %}
+                    <span class="badge-neutral">{{ s.teacher_name }}</span>
+                  {% else %}
+                    <span class="badge-danger-min">Unassigned</span>
+                  {% endif %}
+                </td>
+                <td>{{ s.total_planned_lectures }} lecs</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3" class="text-center text-muted py-3">No subjects yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card card-white p-3 h-100">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="fw-bold text-dark mb-0">Enrolled Students</h6>
+        <a href="{{ url_for('head_teacher_students') }}" class="small text-muted text-decoration-none">View All &rarr;</a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-minimal">
+          <thead>
+            <tr>
+              <th>UID</th>
+              <th>Name</th>
+              <th>Year</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for st in students_list[:5] %}
+              <tr>
+                <td><span class="badge-neutral">{{ st.uid }}</span></td>
+                <td class="fw-semibold">{{ st.name }}</td>
+                <td>Year {{ st.year }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3" class="text-center text-muted py-3">No students yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

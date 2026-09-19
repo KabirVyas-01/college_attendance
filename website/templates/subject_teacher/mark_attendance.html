@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block title %}Mark Attendance - {{ subject.subject_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <a href="{{ url_for('subject_teacher_dashboard') }}" class="text-decoration-none text-muted small">&larr; Back</a>
+      <span class="badge-neutral">{{ subject.dept_code }}</span>
+    </div>
+    <h4 class="fw-bold text-dark mb-0">{{ subject.subject_name }}</h4>
+  </div>
+  <a href="{{ url_for('subject_teacher_subject_roster', subject_id=subject.subject_id) }}" class="btn btn-sm btn-light-min">
+    View Attendance Sheet &rarr;
+  </a>
+</div>
+
+<!-- Attendance Form Card -->
+<form action="{{ url_for('subject_teacher_save_attendance', subject_id=subject.subject_id) }}" method="POST">
+  <div class="card card-white p-3 mb-3">
+    
+    <div class="row align-items-center g-3">
+      <div class="col-md-4">
+        <label for="lecture_date" class="form-label small text-muted mb-1">Lecture Date</label>
+        <input type="date" class="form-control form-control-sm" id="lecture_date" name="date" value="{{ today_date }}" required>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label small text-muted mb-1">Batch Controls</label>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-light-min flex-grow-1" onclick="markAllAttendance('P')">
+            Mark All Present
+          </button>
+          <button type="button" class="btn btn-sm btn-light-min flex-grow-1" onclick="markAllAttendance('A')">
+            Mark All Absent
+          </button>
+        </div>
+      </div>
+
+      <div class="col-md-4 text-md-end">
+        <label class="form-label small text-muted mb-1 d-block">Tally</label>
+        <div class="d-inline-flex gap-2">
+          <span class="badge-neutral">Total: {{ students|length }}</span>
+          <span class="badge-safe">Present: <strong id="live-present-count">{{ students|length }}</strong></span>
+          <span class="badge-danger-min">Absent: <strong id="live-absent-count">0</strong></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Students List -->
+  <div class="card card-white p-0 overflow-hidden mb-3">
+    <div class="table-responsive">
+      <table class="table table-minimal align-middle">
+        <thead>
+          <tr>
+            <th>UID</th>
+            <th>Student Name</th>
+            <th>Year</th>
+            <th class="text-center" style="width: 200px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for st in students %}
+            <tr>
+              <td>
+                <span class="badge-neutral fw-bold">{{ st.uid }}</span>
+              </td>
+              <td class="fw-semibold text-dark">{{ st.name }}</td>
+              <td>Year {{ st.year }}</td>
+              <td class="text-center">
+                <div class="btn-group btn-group-sm w-100" role="group">
+                  <input type="radio" class="btn-check" name="status_{{ st.uid }}" id="p_{{ st.uid }}" value="P" checked onchange="updateAttendanceCounter()">
+                  <label class="btn btn-outline-dark btn-sm py-1" for="p_{{ st.uid }}">Present (P)</label>
+
+                  <input type="radio" class="btn-check" name="status_{{ st.uid }}" id="a_{{ st.uid }}" value="A" onchange="updateAttendanceCounter()">
+                  <label class="btn btn-outline-danger btn-sm py-1" for="a_{{ st.uid }}">Absent (A)</label>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4" class="text-center py-3 text-muted">No students enrolled.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-end gap-2">
+    <a href="{{ url_for('subject_teacher_dashboard') }}" class="btn btn-sm btn-light-min px-3">Cancel</a>
+    <button type="submit" class="btn btn-sm btn-dark-min px-4">
+      Save Attendance
+    </button>
+  </div>
+
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    updateAttendanceCounter();
+  });
+</script>
+{% endblock %}

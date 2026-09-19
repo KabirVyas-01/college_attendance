@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Subjects - {{ dept_code }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+  <div>
+    <h4 class="fw-bold text-dark mb-0">Department Subjects</h4>
+    <p class="text-muted small mb-0">Curriculum subjects and teacher assignments for <strong>{{ dept_code }}</strong>.</p>
+  </div>
+  <button type="button" class="btn btn-sm btn-dark-min" data-bs-toggle="modal" data-bs-target="#addSubjectModal">
+    + Add Subject
+  </button>
+</div>
+
+<!-- Subjects Table -->
+<div class="card card-white p-0 overflow-hidden">
+  <div class="table-responsive">
+    <table class="table table-minimal align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Subject Name</th>
+          <th>Assigned Teacher</th>
+          <th>Planned</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in subjects_list %}
+          <tr>
+            <td>
+              <span class="badge-neutral">#{{ s.subject_id }}</span>
+            </td>
+            <td class="fw-semibold text-dark">{{ s.subject_name }}</td>
+            <td>
+              {% if s.teacher_name %}
+                <span class="badge-neutral">{{ s.teacher_name }} (ID: {{ s.assigned_teacher_id }})</span>
+              {% else %}
+                <span class="badge-danger-min">Unassigned</span>
+              {% endif %}
+            </td>
+            <td>{{ s.total_planned_lectures }} lecs</td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-light-min py-1 px-2 me-1" data-bs-toggle="modal" data-bs-target="#reassignModal{{ s.subject_id }}">
+                Reassign
+              </button>
+              <form action="{{ url_for('head_teacher_remove_subject', subject_id=s.subject_id) }}" method="POST" class="d-inline" onsubmit="return confirm('Remove subject?');">
+                <button type="submit" class="btn btn-sm btn-light-min text-danger py-1 px-2">
+                  Delete
+                </button>
+              </form>
+
+              <!-- Reassign Modal -->
+              <div class="modal fade text-start" id="reassignModal{{ s.subject_id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content border card-white">
+                    <div class="modal-header border-bottom py-2">
+                      <h6 class="modal-title fw-bold text-dark">Assign Teacher: {{ s.subject_name }}</h6>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('head_teacher_assign_subject', subject_id=s.subject_id) }}" method="POST">
+                      <div class="modal-body p-3">
+                        <label for="teacher_select_{{ s.subject_id }}" class="form-label small text-muted">Select Faculty Member</label>
+                        <select class="form-select form-select-sm" id="teacher_select_{{ s.subject_id }}" name="teacher_id" required>
+                          <option value="0" {% if not s.assigned_teacher_id %}selected{% endif %}>-- Unassigned --</option>
+                          {% for f in faculty_list %}
+                            <option value="{{ f.faculty_id }}" {% if s.assigned_teacher_id == f.faculty_id %}selected{% endif %}>
+                              {{ f.name }} (ID: {{ f.faculty_id }})
+                            </option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <div class="modal-footer border-top py-2">
+                        <button type="button" class="btn btn-sm btn-light-min" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-dark-min">Save</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="text-center py-3 text-muted">No subjects configured yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Subject Modal -->
+<div class="modal fade" id="addSubjectModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border card-white">
+      <div class="modal-header border-bottom py-2">
+        <h6 class="modal-title fw-bold text-dark">Add New Subject</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('head_teacher_add_subject') }}" method="POST">
+        <div class="modal-body p-3">
+          <div class="mb-3">
+            <label for="subject_name" class="form-label small text-muted">Subject Name</label>
+            <input type="text" class="form-control form-control-sm" id="subject_name" name="name" placeholder="e.g. Data Structures & Algorithms" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="planned_lectures" class="form-label small text-muted">Approx. Total Planned Lectures</label>
+            <input type="number" class="form-control form-control-sm" id="planned_lectures" name="planned" value="40" min="1" required>
+          </div>
+
+          <div class="mb-2">
+            <label for="assigned_teacher" class="form-label small text-muted">Assign Teacher (Optional)</label>
+            <select class="form-select form-select-sm" id="assigned_teacher" name="teacher_id">
+              <option value="0">-- Unassigned for now --</option>
+              {% for f in faculty_list %}
+                <option value="{{ f.faculty_id }}">{{ f.name }} (ID: {{ f.faculty_id }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-top py-2">
+          <button type="button" class="btn btn-sm btn-light-min" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-dark-min">Create Subject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

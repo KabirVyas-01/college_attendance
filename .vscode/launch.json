@@ -1,0 +1,39 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Website (website/app.py)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/website/app.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/website",
+            "justMyCode": true
+        },
+        {
+            "name": "Run CLI Program (main.py)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true
+        },
+        {
+            "name": "Seed Demo Data (seed_demo_data.py)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/seed_demo_data.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Run Test Suite (test_system.py)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/test_system.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

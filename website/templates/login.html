@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign In - College Attendance{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center my-4">
+  <div class="col-lg-5 col-md-7 col-sm-10">
+    
+    <!-- Login Box -->
+    <div class="card card-white p-4">
+      <div class="text-center mb-3">
+        <h4 class="fw-bold text-dark mb-1">Academic Portal Login</h4>
+        <p class="text-muted small">Select your role to continue</p>
+      </div>
+
+      <!-- Tabs -->
+      <ul class="nav nav-pills nav-fill bg-light p-1 rounded mb-3" id="loginTab" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active fw-500 text-dark py-1 small" id="tab-student" data-bs-toggle="pill" data-bs-target="#pane-student" type="button" role="tab">
+            Student
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link fw-500 text-dark py-1 small" id="tab-teacher" data-bs-toggle="pill" data-bs-target="#pane-teacher" type="button" role="tab">
+            Teacher
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link fw-500 text-dark py-1 small" id="tab-head" data-bs-toggle="pill" data-bs-target="#pane-head" type="button" role="tab">
+            Head Teacher
+          </button>
+        </li>
+      </ul>
+
+      <!-- Tab Contents -->
+      <div class="tab-content" id="loginTabContent">
+        
+        <!-- Student -->
+        <div class="tab-pane fade show active" id="pane-student" role="tabpanel">
+          <form action="{{ url_for('login_post') }}" method="POST">
+            <input type="hidden" name="role" value="student">
+            
+            <div class="mb-3">
+              <label for="student_uid" class="form-label small text-muted">6-Digit Student UID</label>
+              <input type="number" class="form-control form-control-sm" id="student_uid" name="identifier" placeholder="e.g. 100000" required>
+            </div>
+
+            <div class="mb-3">
+              <label for="student_password" class="form-label small text-muted">Password</label>
+              <input type="password" class="form-control form-control-sm" id="student_password" name="password" placeholder="8-char password" required>
+            </div>
+
+            <button type="submit" class="btn btn-dark-min w-100 py-2">
+              Sign In as Student
+            </button>
+          </form>
+        </div>
+
+        <!-- Teacher -->
+        <div class="tab-pane fade" id="pane-teacher" role="tabpanel">
+          <form action="{{ url_for('login_post') }}" method="POST">
+            <input type="hidden" name="role" value="subject_teacher">
+            
+            <div class="mb-3">
+              <label for="teacher_faculty_id" class="form-label small text-muted">5-Digit Faculty ID</label>
+              <input type="number" class="form-control form-control-sm" id="teacher_faculty_id" name="identifier" placeholder="e.g. 10002" required>
+            </div>
+
+            <div class="mb-3">
+              <label for="teacher_password" class="form-label small text-muted">Password</label>
+              <input type="password" class="form-control form-control-sm" id="teacher_password" name="password" placeholder="Enter password" required>
+            </div>
+
+            <button type="submit" class="btn btn-dark-min w-100 py-2">
+              Sign In as Subject Teacher
+            </button>
+          </form>
+        </div>
+
+        <!-- Head Teacher -->
+        <div class="tab-pane fade" id="pane-head" role="tabpanel">
+          <form action="{{ url_for('login_post') }}" method="POST">
+            <input type="hidden" name="role" value="head_teacher">
+            
+            <div class="mb-3">
+              <label for="head_faculty_id" class="form-label small text-muted">5-Digit Head Teacher ID</label>
+              <input type="number" class="form-control form-control-sm" id="head_faculty_id" name="identifier" placeholder="e.g. 10001" required>
+            </div>
+
+            <div class="mb-3">
+              <label for="head_password" class="form-label small text-muted">Password</label>
+              <input type="password" class="form-control form-control-sm" id="head_password" name="password" placeholder="Enter password" required>
+            </div>
+
+            <button type="submit" class="btn btn-dark-min w-100 py-2">
+              Sign In as Head Teacher
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Quick Demo Testing -->
+    <div class="card card-white mt-3 p-3">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <span class="small fw-semibold text-dark">Quick Test Accounts</span>
+        <span class="badge-neutral" style="font-size: 0.7rem;">1-Click</span>
+      </div>
+      
+      <div class="d-grid gap-1">
+        <button type="button" class="btn btn-sm btn-light-min text-start d-flex justify-content-between py-1" onclick="fillLogin('student', '100000', 'stud123')">
+          <span class="small">Alice Smith (Student)</span>
+          <span class="text-muted small">UID: 100000</span>
+        </button>
+
+        <button type="button" class="btn btn-sm btn-light-min text-start d-flex justify-content-between py-1" onclick="fillLogin('teacher', '10002', 'teach123')">
+          <span class="small">Dr. Ada Lovelace (DSA Teacher)</span>
+          <span class="text-muted small">ID: 10002</span>
+        </button>
+
+        <button type="button" class="btn btn-sm btn-light-min text-start d-flex justify-content-between py-1" onclick="fillLogin('head', '10001', 'admin123')">
+          <span class="small">Prof. Alan Turing (CSE Head)</span>
+          <span class="text-muted small">ID: 10001</span>
+        </button>
+      </div>
+
+      <div class="text-center mt-2 pt-2 border-top">
+        <a href="{{ url_for('setup_page') }}" class="small text-decoration-none text-muted">
+          Configure Head Teacher for another department &rarr;
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

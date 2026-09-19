@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Student Attendance Dashboard - {{ student.name }}{% endblock %}
+
+{% block content %}
+<!-- Student Profile Banner -->
+<div class="card card-white p-3 mb-3">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <h4 class="fw-bold text-dark mb-0">{{ student.name }}</h4>
+        <span class="badge-neutral">Year {{ student.year }}</span>
+      </div>
+      <div class="text-muted small">
+        Student UID: <strong class="text-dark">{{ student.uid }}</strong> | Department: <strong class="text-dark">{{ student.dept_name }} ({{ student.dept_code }})</strong>
+      </div>
+    </div>
+
+    <!-- Overall Attendance Indicator -->
+    <div class="text-md-end">
+      <div class="small text-muted mb-1" style="font-size: 0.75rem; text-transform: uppercase;">Overall Semester Attendance</div>
+      <div class="d-inline-flex align-items-center gap-2">
+        <span class="fs-4 fw-bold {% if overall.is_on_track %}text-dark{% else %}text-danger{% endif %}">
+          {{ overall.overall_pct }}%
+        </span>
+        {% if overall.is_on_track %}
+          <span class="badge-safe">&ge; 75% Eligible</span>
+        {% else %}
+          <span class="badge-danger-min">&lt; 75% Low Attendance</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Overall Cumulative Stats Bar -->
+<div class="row g-2 mb-3">
+  <div class="col-md-4">
+    <div class="stat-box text-center p-2">
+      <div class="fs-5 fw-bold text-dark">{{ overall.total_conducted }}</div>
+      <div class="lbl">Total Conducted (All Subjects)</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-box text-center p-2">
+      <div class="fs-5 fw-bold text-dark">{{ overall.total_attended }}</div>
+      <div class="lbl">Total Lectures Attended</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-box text-center p-2">
+      <div class="fs-5 fw-bold text-danger">{{ overall.total_absent }}</div>
+      <div class="lbl">Total Lectures Absent</div>
+    </div>
+  </div>
+</div>
+
+<h5 class="fw-bold text-dark mb-3">Subject-Wise Attendance & 75% Leave Advisor</h5>
+
+<!-- Subject-Wise Attendance Cards -->
+<div class="row g-3 mb-4">
+  {% for s in subjects %}
+    <div class="col-lg-6">
+      <div class="card card-white p-3 h-100 d-flex flex-column justify-content-between">
+        <div>
+          
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <h6 class="fw-bold text-dark mb-0">{{ s.subject_name }}</h6>
+              <div class="text-muted small">
+                Teacher: <strong>{{ s.teacher_name }}</strong>
+              </div>
+            </div>
+            <div>
+              {% if s.is_on_track %}
+                <span class="badge-safe">&ge; 75% On Track</span>
+              {% else %}
+                <span class="badge-danger-min">&lt; 75% Low</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Attendance Counts -->
+          <div class="row g-2 text-center my-2">
+            <div class="col-4">
+              <div class="p-2 border rounded bg-light">
+                <div class="fw-bold text-dark">{{ s.conducted }}</div>
+                <div class="text-muted" style="font-size: 0.7rem;">Conducted</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="p-2 border rounded bg-light">
+                <div class="fw-bold text-dark">{{ s.attended }}</div>
+                <div class="text-muted" style="font-size: 0.7rem;">Attended</div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="p-2 border rounded bg-light">
+                <div class="fw-bold text-danger">{{ s.absent }}</div>
+                <div class="text-muted" style="font-size: 0.7rem;">Absent</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress Bar & % -->
+          <div class="mb-2">
+            <div class="d-flex justify-content-between small text-muted mb-1">
+              <span>Attendance to date</span>
+              <strong class="{% if s.is_on_track %}text-dark{% else %}text-danger{% endif %}">{{ s.current_pct }}%</strong>
+            </div>
+            <div class="bar-wrap">
+              <div class="progress-bar {% if s.is_on_track %}bg-dark{% else %}bg-danger{% endif %}" role="progressbar" style="width: {{ s.current_pct }}%; height: 100%;"></div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between small text-muted py-1 border-top border-bottom mb-2">
+            <span>approx. total lectures in semester:</span>
+            <strong class="text-dark">{{ s.approx_total_planned }} lecs</strong>
+          </div>
+
+          <!-- Advisor Box -->
+          {% if s.is_on_track %}
+            <div class="advisor-safe small mb-2">
+              <strong>On Track (&ge; 75%):</strong> approx. safe leaves allowed in remaining semester: <strong>{{ s.approx_safe_leaves }}</strong> lecture(s).
+            </div>
+          {% else %}
+            <div class="advisor-warn small mb-2">
+              <strong>Below 75%:</strong> approx. consecutive lectures needed to attend: <strong>{{ s.approx_needed_consecutive }}</strong> lecture(s).
+            </div>
+          {% endif %}
+
+        </div>
+
+        <!-- History Link -->
+        <div class="pt-2 border-top text-end">
+          <a href="{{ url_for('student_subject_history', subject_id=s.subject_id) }}" class="small text-muted text-decoration-none">
+            View Lecture Log &rarr;
+          </a>
+        </div>
+
+      </div>
+    </div>
+  {% else %}
+    <div class="col-12">
+      <div class="card card-white p-4 text-center">
+        <p class="text-muted small mb-0">No subjects registered for your department.</p>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

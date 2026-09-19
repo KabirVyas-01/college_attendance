@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Lecture Attendance Log - {{ subject_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <a href="{{ url_for('student_dashboard') }}" class="text-decoration-none text-muted small">&larr; Back to Dashboard</a>
+    </div>
+    <h4 class="fw-bold text-dark mb-0">{{ subject_name }} - Lecture Log</h4>
+    <p class="text-muted small mb-0">Attendance history for Student UID: <strong>{{ student_uid }}</strong></p>
+  </div>
+  <a href="{{ url_for('student_dashboard') }}" class="btn btn-sm btn-light-min">
+    Return to Dashboard
+  </a>
+</div>
+
+<!-- History Table -->
+<div class="card card-white p-0 overflow-hidden mb-3">
+  <div class="table-responsive">
+    <table class="table table-minimal align-middle">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Lecture Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in history %}
+          <tr>
+            <td><span class="badge-neutral">Lec {{ loop.index }}</span></td>
+            <td class="fw-semibold text-dark">{{ record.date }}</td>
+            <td>
+              {% if record.status == 'P' %}
+                <span class="badge-safe">Present (P)</span>
+              {% else %}
+                <span class="badge-danger-min">Absent (A)</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="text-center py-3 text-muted">No attendance records found for this subject.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
