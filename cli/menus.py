@@ -1,8 +1,12 @@
+import os
 import sqlite3
 import datetime
 from typing import Dict, Any
-from config import DEPARTMENTS, MIN_ATTENDANCE_PCT
-from auth import authenticate_faculty, authenticate_student
+from config import DEPARTMENTS, MIN_ATTENDANCE_PCT, DATA_DIR
+from auth import (
+    authenticate_faculty, authenticate_student, generate_password,
+    change_student_password, change_faculty_password, is_valid_formatted_password
+)
 from cli.ui_helpers import (
     print_header, print_section, print_success, print_error, print_warning, print_info,
     render_table, prompt_str, prompt_int, pause, BOLD, RESET, GREEN, RED, YELLOW, CYAN
@@ -10,7 +14,8 @@ from cli.ui_helpers import (
 from services import (
     head_teacher_service,
     subject_teacher_service,
-    student_service
+    student_service,
+    csv_service
 )
 
 def check_first_time_setup(conn: sqlite3.Connection):
@@ -52,8 +57,7 @@ def setup_head_teacher_wizard(conn: sqlite3.Connection):
         return
     password = prompt_str("Enter Head Teacher's Password (or leave blank to auto-generate)", allow_empty=True)
     if not password:
-        from auth import generate_password
-        password = generate_password(8)
+        password = generate_password()
 
     faculty_id = head_teacher_service.create_head_teacher(conn, name, password, dept_code)
     
@@ -88,9 +92,10 @@ def head_teacher_menu(conn: sqlite3.Connection, faculty: Dict[str, Any]):
         print("  9. Add Student (Auto-assign 6-digit Branch UID & Password)")
         print("  10. Remove Student")
         print("  11. List All Students")
+        print("  12. CSV Data Management (Import / Seed Students, Teachers, Subjects)")
         print("  0. Logout")
 
-        choice = prompt_int("Enter option", 0, 11)
+        choice = prompt_int("Enter option", 0, 12)
         if choice == 0 or choice is None:
             print_info("Logged out from Head Teacher account.")
             break
@@ -116,6 +121,8 @@ def head_teacher_menu(conn: sqlite3.Connection, faculty: Dict[str, Any]):
             remove_student_flow(conn, dept_code)
         elif choice == 11:
             list_students_flow(conn, dept_code)
+        elif choice == 12:
+            csv_management_flow(conn, dept_code)
 
 def view_department_overview(conn: sqlite3.Connection, dept_code: str):
     print_section(f"Department Overview: {dept_code}")
@@ -216,7 +223,7 @@ def remove_subject_flow(conn: sqlite3.Connection, dept_code: str):
     sub_id = prompt_int("Enter Subject ID to remove (0 to cancel)", min_val=0)
     if not sub_id:
         return
-    if head_teacher_service.remove_subject_flow(conn, sub_id, dept_code) if hasattr(head_teacher_service, 'remove_subject_flow') else head_teacher_service.remove_subject(conn, sub_id, dept_code):
+    if head_teacher_service.remove_subject(conn, sub_id, dept_code):
         print_success(f"Subject ID {sub_id} removed.")
     else:
         print_error("Subject not found.")
@@ -279,6 +286,166 @@ def list_students_flow(conn: sqlite3.Connection, dept_code: str, pause_after: bo
     if pause_after:
         pause()
 
+def csv_management_flow(conn: sqlite3.Connection, dept_code: str):
+    while True:
+        print_header(
+            f"CSV DATA MANAGEMENT ({dept_code})",
+            "Batch Import, Seed Demo Data, and Export Records via CSV"
+        )
+        print("  1. Import Students from CSV File")
+        print("  2. Import Subject Teachers from CSV File")
+        print("  3. Import Subjects from CSV File")
+        print("  4. Quick Load Demo CSV Data for this Department")
+        print("  5. Export Department Records to CSV File")
+        print("  6. View CSV Format Guidelines & Templates")
+        print("  0. Back to Head Teacher Dashboard")
+
+        choice = prompt_int("Enter option", 0, 6)
+        if choice == 0 or choice is None:
+            break
+        elif choice == 1:
+            import_students_csv_flow(conn, dept_code)
+        elif choice == 2:
+            import_teachers_csv_flow(conn, dept_code)
+        elif choice == 3:
+            import_subjects_csv_flow(conn, dept_code)
+        elif choice == 4:
+            load_dept_demo_csv_flow(conn, dept_code)
+        elif choice == 5:
+            export_dept_csv_flow(conn, dept_code)
+        elif choice == 6:
+            view_csv_guide_flow()
+
+def import_students_csv_flow(conn: sqlite3.Connection, dept_code: str):
+    print_section(f"Import Students from CSV ({dept_code})")
+    default_path = os.path.join(DATA_DIR, "students.csv")
+    print_info(f"Default CSV location: {default_path}")
+    path = prompt_str(f"Enter path to students CSV file (or Enter for default)")
+    if not path:
+        path = default_path
+    
+    if not os.path.exists(path):
+        print_error(f"File not found: {path}")
+        pause()
+        return
+
+    res = head_teacher_service.import_students_csv(conn, path, dept_code)
+    print_success(f"Successfully processed {res['count']} student record(s)!")
+    if res["records"]:
+        headers = ["UID", "Name", "Department", "Year", "Password"]
+        rows = [[r["uid"], r["name"], r["dept_code"], f"Year {r['year']}", r["password"]] for r in res["records"]]
+        render_table(headers, rows)
+    if res["errors"]:
+        print_warning(f"Encountered {len(res['errors'])} notice(s):")
+        for err in res["errors"]:
+            print(f"  • {err}")
+    pause()
+
+def import_teachers_csv_flow(conn: sqlite3.Connection, dept_code: str):
+    print_section(f"Import Teachers from CSV ({dept_code})")
+    default_path = os.path.join(DATA_DIR, "teachers.csv")
+    print_info(f"Default CSV location: {default_path}")
+    path = prompt_str("Enter path to teachers CSV file (or Enter for default)")
+    if not path:
+        path = default_path
+
+    if not os.path.exists(path):
+        print_error(f"File not found: {path}")
+        pause()
+        return
+
+    res = head_teacher_service.import_teachers_csv(conn, path, dept_code)
+    print_success(f"Successfully processed {res['count']} teacher record(s)!")
+    if res["records"]:
+        headers = ["Faculty ID", "Name", "Department", "Role", "Password"]
+        rows = [
+            [r["faculty_id"], r["name"], r["dept_code"], "Head Teacher" if r["is_head_teacher"] == 1 else "Subject Teacher", r["password"]]
+            for r in res["records"]
+        ]
+        render_table(headers, rows)
+    if res["errors"]:
+        print_warning(f"Encountered {len(res['errors'])} notice(s):")
+        for err in res["errors"]:
+            print(f"  • {err}")
+    pause()
+
+def import_subjects_csv_flow(conn: sqlite3.Connection, dept_code: str):
+    print_section(f"Import Subjects from CSV ({dept_code})")
+    default_path = os.path.join(DATA_DIR, "subjects.csv")
+    print_info(f"Default CSV location: {default_path}")
+    path = prompt_str("Enter path to subjects CSV file (or Enter for default)")
+    if not path:
+        path = default_path
+
+    if not os.path.exists(path):
+        print_error(f"File not found: {path}")
+        pause()
+        return
+
+    res = head_teacher_service.import_subjects_csv(conn, path, dept_code)
+    print_success(f"Successfully processed {res['count']} subject record(s)!")
+    if res["records"]:
+        headers = ["Subject ID", "Name", "Department", "Assigned Teacher ID", "Planned Lecs"]
+        rows = [
+            [r["subject_id"], r["subject_name"], r["dept_code"], r["assigned_teacher_id"] or "Unassigned", r["total_planned_lectures"]]
+            for r in res["records"]
+        ]
+        render_table(headers, rows)
+    if res["errors"]:
+        print_warning(f"Encountered {len(res['errors'])} notice(s):")
+        for err in res["errors"]:
+            print(f"  • {err}")
+    pause()
+
+def load_dept_demo_csv_flow(conn: sqlite3.Connection, dept_code: str):
+    print_section(f"Load Demo CSV Data ({dept_code})")
+    print_info(f"Loading students, teachers, subjects, and sample attendance from '{DATA_DIR}'...")
+    res = head_teacher_service.seed_department_from_csv(conn, dept_code)
+    t_cnt = res.get("teachers", {}).get("count", 0)
+    s_cnt = res.get("subjects", {}).get("count", 0)
+    st_cnt = res.get("students", {}).get("count", 0)
+    a_cnt = res.get("attendance", {}).get("count", 0)
+    print_success(f"Demo CSV data loaded for {dept_code}:")
+    print(f"  • Teachers loaded: {t_cnt}")
+    print(f"  • Subjects loaded: {s_cnt}")
+    print(f"  • Students loaded: {st_cnt}")
+    print(f"  • Attendance records loaded: {a_cnt}")
+    pause()
+
+def export_dept_csv_flow(conn: sqlite3.Connection, dept_code: str):
+    print_section(f"Export Department Records to CSV ({dept_code})")
+    print("  1. Export Students to CSV")
+    print("  2. Export Faculty to CSV")
+    print("  3. Export Subjects to CSV")
+    print("  0. Cancel")
+    opt = prompt_int("Select category to export", 0, 3)
+    if not opt:
+        return
+    
+    mapping = {1: ("students", "students"), 2: ("teachers", "faculty"), 3: ("subjects", "subjects")}
+    entity, name = mapping[opt]
+    csv_text = head_teacher_service.export_department_csv(conn, entity, dept_code)
+    export_dir = os.path.join(os.path.dirname(DATA_DIR), "exports")
+    os.makedirs(export_dir, exist_ok=True)
+    out_file = os.path.join(export_dir, f"{dept_code.lower()}_{name}.csv")
+    with open(out_file, "w", encoding="utf-8") as f:
+        f.write(csv_text)
+    print_success(f"Exported successfully to: {out_file}")
+    pause()
+
+def view_csv_guide_flow():
+    print_section("CSV Format Guidelines & Templates")
+    print(f"{BOLD}1. Students CSV (students.csv):{RESET}")
+    print("   Required: name | Optional: uid, password, dept_code, year")
+    print("   Example:\n   name,year\n   Alice Smith,2\n   Bob Jones,2\n")
+    print(f"{BOLD}2. Teachers CSV (teachers.csv):{RESET}")
+    print("   Required: name | Optional: faculty_id, password, dept_code, is_head_teacher")
+    print("   Example:\n   name,is_head_teacher\n   Dr. Ada Lovelace,0\n")
+    print(f"{BOLD}3. Subjects CSV (subjects.csv):{RESET}")
+    print("   Required: subject_name | Optional: subject_id, dept_code, assigned_teacher_id, total_planned_lectures")
+    print("   Example:\n   subject_name,assigned_teacher_id,total_planned_lectures\n   Data Structures & Algorithms,10002,40\n")
+    pause()
+
 # =====================================================================
 # Subject Teacher Workflows
 # =====================================================================
@@ -294,9 +461,10 @@ def subject_teacher_menu(conn: sqlite3.Connection, faculty: Dict[str, Any]):
         print("  2. Enter / Edit Total Planned Lectures")
         print("  3. Mark Lecture Attendance (Present / Absent)")
         print("  4. View Subject Attendance Sheet & 75% Summary")
+        print("  5. Change My Password (format: 4 letters, 1 special char, 3 numbers)")
         print("  0. Logout")
 
-        choice = prompt_int("Enter option", 0, 4)
+        choice = prompt_int("Enter option", 0, 5)
         if choice == 0 or choice is None:
             print_info("Logged out from Subject Teacher account.")
             break
@@ -308,6 +476,8 @@ def subject_teacher_menu(conn: sqlite3.Connection, faculty: Dict[str, Any]):
             mark_attendance_flow(conn, teacher_id)
         elif choice == 4:
             view_subject_sheet_flow(conn, teacher_id)
+        elif choice == 5:
+            change_faculty_password_flow(conn, teacher_id)
 
 def view_assigned_subjects_flow(conn: sqlite3.Connection, teacher_id: int, pause_after: bool = True):
     print_section("My Assigned Subjects")
@@ -480,9 +650,10 @@ def student_menu(conn: sqlite3.Connection, student: Dict[str, Any]):
         )
         print("  1. Complete Attendance Dashboard (with 75% Advisor)")
         print("  2. View Lecture-by-Lecture Date History for a Subject")
+        print("  3. Change My Password (format: 4 letters, 1 special char, 3 numbers)")
         print("  0. Logout")
 
-        choice = prompt_int("Enter option", 0, 2)
+        choice = prompt_int("Enter option", 0, 3)
         if choice == 0 or choice is None:
             print_info("Logged out from Student account.")
             break
@@ -490,6 +661,40 @@ def student_menu(conn: sqlite3.Connection, student: Dict[str, Any]):
             view_student_dashboard_flow(conn, uid)
         elif choice == 2:
             view_student_history_flow(conn, uid)
+        elif choice == 3:
+            change_student_password_flow(conn, uid)
+
+def change_student_password_flow(conn: sqlite3.Connection, uid: int):
+    print_section("Change Password")
+    print_info("Required format: 4 lowercase letters, 1 special character, and 3 numbers (e.g. abcd@123)")
+    current = prompt_str("Enter Current Password")
+    if not current:
+        return
+    new_pwd = prompt_str("Enter New Password (e.g. abcd@123)")
+    if not new_pwd:
+        return
+    try:
+        if change_student_password(conn, uid, new_pwd, old_password=current):
+            print_success(f"Password updated successfully in database! New password: {new_pwd}")
+    except ValueError as e:
+        print_error(str(e))
+    pause()
+
+def change_faculty_password_flow(conn: sqlite3.Connection, faculty_id: int):
+    print_section("Change Faculty Password")
+    print_info("Required format for teachers: 4 letters, 1 special character, and 3 numbers (e.g. abcd@123)")
+    current = prompt_str("Enter Current Password")
+    if not current:
+        return
+    new_pwd = prompt_str("Enter New Password (e.g. abcd@123)")
+    if not new_pwd:
+        return
+    try:
+        if change_faculty_password(conn, faculty_id, new_pwd, old_password=current):
+            print_success(f"Password updated successfully in database! New password: {new_pwd}")
+    except ValueError as e:
+        print_error(str(e))
+    pause()
 
 def view_student_dashboard_flow(conn: sqlite3.Connection, uid: int):
     data = student_service.get_student_dashboard_data(conn, uid)

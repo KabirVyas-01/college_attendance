@@ -2,22 +2,26 @@ import os
 import sys
 import datetime
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
 
 # Ensure parent directory is in python path to reuse existing modules and database
 PARENT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if PARENT_DIR not in sys.path:
     sys.path.insert(0, PARENT_DIR)
 
-from config import DEPARTMENTS, MIN_ATTENDANCE_PCT
+from config import DEPARTMENTS, MIN_ATTENDANCE_PCT, DATA_DIR
 from database import init_db, get_connection
-from auth import authenticate_faculty, authenticate_student
+from auth import (
+    authenticate_faculty, authenticate_student,
+    change_student_password, change_faculty_password,
+    reset_student_password, reset_faculty_password
+)
 from services import (
     head_teacher_service,
     subject_teacher_service,
-    student_service
+    student_service,
+    csv_service
 )
-from seed_demo_data import seed_demo_data
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = os.urandom(24)
@@ -144,12 +148,6 @@ def logout():
     flash("You have been signed out.", "info")
     return redirect(url_for('login'))
 
-@app.route('/seed-demo-data')
-def seed_data_route():
-    seed_demo_data()
-    flash("Demo data has been populated in the shared database! You can now test with sample accounts.", "success")
-    return redirect(url_for('login'))
-
 @app.route('/setup')
 def setup_page():
     return render_template('setup.html', departments=DEPARTMENTS)
@@ -243,6 +241,20 @@ def head_teacher_remove_faculty(faculty_id):
             flash(f"Faculty ID {faculty_id} has been removed.", "info")
         else:
             flash(f"Faculty member not found.", "error")
+    except ValueError as e:
+        flash(str(e), "error")
+    finally:
+        conn.close()
+    return redirect(url_for('head_teacher_faculty'))
+
+@app.route('/head-teacher/faculty/reset-password/<int:faculty_id>', methods=['POST'])
+@head_teacher_required
+def head_teacher_reset_faculty_password(faculty_id):
+    dept_code = session.get('user_dept')
+    conn = get_connection()
+    try:
+        new_pwd = head_teacher_service.reset_faculty_password_in_dept(conn, faculty_id, dept_code)
+        flash(f"Password reset for Faculty ID {faculty_id}! New password: {new_pwd}", "success")
     except ValueError as e:
         flash(str(e), "error")
     finally:
@@ -349,6 +361,109 @@ def head_teacher_remove_student(uid):
         flash("Student not found.", "error")
     conn.close()
     return redirect(url_for('head_teacher_students'))
+
+@app.route('/head-teacher/students/reset-password/<int:uid>', methods=['POST'])
+@head_teacher_required
+def head_teacher_reset_student_password(uid):
+    dept_code = session.get('user_dept')
+    conn = get_connection()
+    try:
+        new_pwd = head_teacher_service.reset_student_password_in_dept(conn, uid, dept_code)
+        flash(f"Password reset for Student UID {uid}! New password: {new_pwd}", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    finally:
+        conn.close()
+    return redirect(url_for('head_teacher_students'))
+
+@app.route('/head-teacher/upload-csv/<entity_type>', methods=['POST'])
+@head_teacher_required
+def head_teacher_upload_csv(entity_type):
+    dept_code = session.get('user_dept')
+    file = request.files.get('file')
+    raw_text = request.form.get('csv_text', '').strip()
+
+    csv_source = None
+    if file and file.filename:
+        csv_source = file.stream
+    elif raw_text:
+        csv_source = raw_text
+    else:
+        flash("Please upload a CSV file or provide CSV text.", "error")
+        return redirect(request.referrer or url_for('head_teacher_dashboard'))
+
+    conn = get_connection()
+    try:
+        if entity_type == 'students':
+            res = head_teacher_service.import_students_csv(conn, csv_source, dept_code)
+            flash(f"Successfully imported/updated {res['count']} student(s) from CSV!", "success")
+            if res['errors']:
+                flash(f"CSV notices: {'; '.join(res['errors'][:3])}", "warning")
+            return redirect(url_for('head_teacher_students'))
+
+        elif entity_type in ('faculty', 'teachers'):
+            res = head_teacher_service.import_teachers_csv(conn, csv_source, dept_code)
+            flash(f"Successfully imported/updated {res['count']} faculty member(s) from CSV!", "success")
+            if res['errors']:
+                flash(f"CSV notices: {'; '.join(res['errors'][:3])}", "warning")
+            return redirect(url_for('head_teacher_faculty'))
+
+        elif entity_type == 'subjects':
+            res = head_teacher_service.import_subjects_csv(conn, csv_source, dept_code)
+            flash(f"Successfully imported/updated {res['count']} subject(s) from CSV!", "success")
+            if res['errors']:
+                flash(f"CSV notices: {'; '.join(res['errors'][:3])}", "warning")
+            return redirect(url_for('head_teacher_subjects'))
+        else:
+            flash(f"Unknown entity type: {entity_type}", "error")
+    except Exception as e:
+        flash(f"Failed to process CSV: {str(e)}", "error")
+    finally:
+        conn.close()
+
+    return redirect(request.referrer or url_for('head_teacher_dashboard'))
+
+@app.route('/head-teacher/load-demo-csv', methods=['POST'])
+@head_teacher_required
+def head_teacher_load_demo_csv():
+    dept_code = session.get('user_dept')
+    conn = get_connection()
+    try:
+        res = head_teacher_service.seed_department_from_csv(conn, dept_code)
+        t_cnt = res.get('teachers', {}).get('count', 0)
+        s_cnt = res.get('subjects', {}).get('count', 0)
+        st_cnt = res.get('students', {}).get('count', 0)
+        flash(f"Preloaded demo CSV data applied for {dept_code}! ({t_cnt} teachers, {s_cnt} subjects, {st_cnt} students)", "success")
+    except Exception as e:
+        flash(f"Failed to load demo CSV: {str(e)}", "error")
+    finally:
+        conn.close()
+    return redirect(url_for('head_teacher_dashboard'))
+
+@app.route('/head-teacher/export-csv/<entity_type>')
+@head_teacher_required
+def head_teacher_export_csv(entity_type):
+    dept_code = session.get('user_dept')
+    conn = get_connection()
+    try:
+        csv_text = head_teacher_service.export_department_csv(conn, entity_type, dept_code)
+    finally:
+        conn.close()
+    return Response(
+        csv_text,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={dept_code.lower()}_{entity_type}.csv"}
+    )
+
+@app.route('/head-teacher/template-csv/<entity_type>')
+@head_teacher_required
+def head_teacher_template_csv(entity_type):
+    csv_text = csv_service.get_csv_template(entity_type)
+    return Response(
+        csv_text,
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=template_{entity_type}.csv"}
+    )
 
 # =====================================================================
 # Subject Teacher Routes
@@ -488,6 +603,36 @@ def student_subject_history(subject_id):
         subject_name=subject_name,
         history=history
     )
+
+@app.route('/change-password', methods=['POST'])
+def change_password_route():
+    user_role = session.get('user_role')
+    user_id = session.get('user_id')
+    if not user_role or not user_id:
+        flash("Please log in first.", "warning")
+        return redirect(url_for('login'))
+
+    current_pwd = request.form.get('current_password', '').strip()
+    new_pwd = request.form.get('new_password', '').strip()
+
+    if not current_pwd or not new_pwd:
+        flash("Please provide current and new password.", "error")
+        return redirect(request.referrer or url_for('login'))
+
+    conn = get_connection()
+    try:
+        if user_role == 'student':
+            change_student_password(conn, user_id, new_pwd, old_password=current_pwd)
+            flash("Your password has been updated successfully!", "success")
+        elif user_role in ('subject_teacher', 'head_teacher'):
+            change_faculty_password(conn, user_id, new_pwd, old_password=current_pwd)
+            flash("Your password has been updated successfully!", "success")
+    except ValueError as e:
+        flash(str(e), "error")
+    finally:
+        conn.close()
+
+    return redirect(request.referrer or url_for('login'))
 
 # =====================================================================
 # App Runner

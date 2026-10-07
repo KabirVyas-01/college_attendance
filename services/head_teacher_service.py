@@ -200,3 +200,51 @@ def list_students(conn: sqlite3.Connection, dept_code: str) -> List[Dict[str, An
         (dept_code,)
     )
     return [dict(row) for row in cursor.fetchall()]
+
+def import_students_csv(conn: sqlite3.Connection, csv_source: Any, dept_code: str) -> Dict[str, Any]:
+    """Imports student records from CSV scoped to the Head Teacher's department."""
+    from services.csv_service import import_students_from_csv
+    return import_students_from_csv(conn, csv_source, dept_code=dept_code)
+
+def import_teachers_csv(conn: sqlite3.Connection, csv_source: Any, dept_code: str) -> Dict[str, Any]:
+    """Imports teacher records from CSV scoped to the Head Teacher's department."""
+    from services.csv_service import import_teachers_from_csv
+    return import_teachers_from_csv(conn, csv_source, dept_code=dept_code)
+
+def import_subjects_csv(conn: sqlite3.Connection, csv_source: Any, dept_code: str) -> Dict[str, Any]:
+    """Imports subject records from CSV scoped to the Head Teacher's department."""
+    from services.csv_service import import_subjects_from_csv
+    return import_subjects_from_csv(conn, csv_source, dept_code=dept_code)
+
+def seed_department_from_csv(conn: sqlite3.Connection, dept_code: str) -> Dict[str, Any]:
+    """Loads demo CSV data for students, teachers, and subjects for the Head Teacher's department."""
+    from services.csv_service import load_department_demo_data_from_csv
+    return load_department_demo_data_from_csv(conn, dept_code=dept_code)
+
+def export_department_csv(conn: sqlite3.Connection, entity_type: str, dept_code: str) -> str:
+    """Exports students, teachers, or subjects in this department as CSV text."""
+    from services.csv_service import export_to_csv_string
+    return export_to_csv_string(conn, entity_type=entity_type, dept_code=dept_code)
+
+def reset_student_password_in_dept(conn: sqlite3.Connection, uid: int, dept_code: str) -> str:
+    """Resets a student's password in the database to a new 'abcd@123' formatted password."""
+    from auth import reset_student_password
+    cursor = conn.cursor()
+    cursor.execute("SELECT uid FROM students WHERE uid = ? AND dept_code = ?", (uid, dept_code))
+    if not cursor.fetchone():
+        raise ValueError(f"Student UID {uid} not found in department {dept_code}.")
+    return reset_student_password(conn, uid)
+
+def reset_faculty_password_in_dept(conn: sqlite3.Connection, faculty_id: int, dept_code: str) -> str:
+    """Resets a subject teacher's password in the database to a new 'abcd@123' formatted password."""
+    from auth import reset_faculty_password
+    cursor = conn.cursor()
+    cursor.execute("SELECT faculty_id, is_head_teacher FROM faculty WHERE faculty_id = ? AND dept_code = ?", (faculty_id, dept_code))
+    row = cursor.fetchone()
+    if not row:
+        raise ValueError(f"Faculty ID {faculty_id} not found in department {dept_code}.")
+    if row["is_head_teacher"] == 1:
+        raise ValueError("Cannot reset Head Teacher password via this method.")
+    return reset_faculty_password(conn, faculty_id)
+
+

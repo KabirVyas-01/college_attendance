@@ -1,0 +1,6 @@
+subject_id,subject_name,dept_code,assigned_teacher_id,total_planned_lectures
+1,Data Structures & Algorithms,CSE,10002,40
+2,Operating Systems,CSE,10003,40
+3,Database Management Systems,CSE,10004,40
+4,Computer Networks,CSE,10001,35
+5,Structural Analysis,CE,20002,45

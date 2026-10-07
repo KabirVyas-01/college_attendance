@@ -3,6 +3,7 @@ import os
 # Base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "college_attendance.db")
+DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # Supported Departments with branch codes, full names, and UID ranges
 # CSE: 100000 - 199999, Faculty start: 10001

@@ -1,0 +1,6 @@
+uid,name,password,dept_code,year
+100000,Alice Smith,stud@100,CSE,2
+100001,Bob Jones,stud@101,CSE,2
+100002,Charlie Brown,stud@102,CSE,2
+200000,David Miller,stud@200,CE,3
+200001,Emma Watson,stud@201,CE,3

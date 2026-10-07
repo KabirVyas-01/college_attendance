@@ -2,13 +2,28 @@ import secrets
 import string
 import sqlite3
 
-def generate_password(length=8) -> str:
+def generate_password(length: int = 8, special_chars: str = "@") -> str:
     """
-    Generates a secure 8-character random alphanumeric password
-    using lowercase letters and digits [a-z0-9] (e.g. 'a7b3x9k2').
+    Generates a password formatted as 4 letters, 1 special character, and 3 numbers (e.g. 'abcd@123').
+    Format: [4 lowercase letters][1 special char][3 digits]
     """
-    chars = string.ascii_lowercase + string.digits
-    return "".join(secrets.choice(chars) for _ in range(length))
+    letters = "".join(secrets.choice(string.ascii_lowercase) for _ in range(4))
+    special = secrets.choice(special_chars) if special_chars else "@"
+    numbers = "".join(secrets.choice(string.digits) for _ in range(3))
+    return f"{letters}{special}{numbers}"
+
+def is_valid_formatted_password(password: str) -> bool:
+    """
+    Verifies if a password adheres to the format: 4 letters + 1 special character + 3 numbers.
+    e.g. 'abcd@123'
+    """
+    if len(password) != 8:
+        return False
+    return (
+        password[:4].isalpha()
+        and not password[4].isalnum()
+        and password[5:].isdigit()
+    )
 
 def get_next_faculty_id(conn: sqlite3.Connection, dept_code: str) -> int:
     """
@@ -85,3 +100,98 @@ def authenticate_student(conn: sqlite3.Connection, uid: int, password: str):
     if row:
         return dict(row)
     return None
+
+def change_student_password(conn: sqlite3.Connection, uid: int, new_password: str, old_password: str = None) -> bool:
+    """
+    Updates the password for an existing student in the database.
+    Requires new password to match format: 4 letters, 1 special char, 3 numbers (e.g. 'abcd@123').
+    """
+    if not is_valid_formatted_password(new_password):
+        raise ValueError("Password must follow the format of 4 letters, 1 special character, and 3 numbers (e.g. 'abcd@123').")
+
+    cursor = conn.cursor()
+    if old_password is not None:
+        cursor.execute("SELECT password FROM students WHERE uid = ?", (uid,))
+        row = cursor.fetchone()
+        if not row or row["password"] != old_password:
+            raise ValueError("Current password does not match.")
+
+    cursor.execute("UPDATE students SET password = ? WHERE uid = ?", (new_password, uid))
+    conn.commit()
+    return cursor.rowcount > 0
+
+def change_faculty_password(conn: sqlite3.Connection, faculty_id: int, new_password: str, old_password: str = None) -> bool:
+    """
+    Updates the password for an existing faculty member in the database.
+    Subject teachers must use format: 4 letters, 1 special char, 3 numbers.
+    Head teachers may use any non-empty password or the formatted password.
+    """
+    cursor = conn.cursor()
+    cursor.execute("SELECT is_head_teacher, password FROM faculty WHERE faculty_id = ?", (faculty_id,))
+    row = cursor.fetchone()
+    if not row:
+        raise ValueError(f"Faculty ID {faculty_id} not found.")
+
+    is_head = row["is_head_teacher"] == 1
+    if not is_head and not is_valid_formatted_password(new_password):
+        raise ValueError("Password must follow the format of 4 letters, 1 special character, and 3 numbers (e.g. 'abcd@123').")
+
+    if old_password is not None and row["password"] != old_password:
+        raise ValueError("Current password does not match.")
+
+    cursor.execute("UPDATE faculty SET password = ? WHERE faculty_id = ?", (new_password, faculty_id))
+    conn.commit()
+    return cursor.rowcount > 0
+
+def reset_student_password(conn: sqlite3.Connection, uid: int) -> str:
+    """
+    Generates a new password formatted as 'abcd@123' and updates the student in the database.
+    """
+    new_pwd = generate_password()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE students SET password = ? WHERE uid = ?", (new_pwd, uid))
+    conn.commit()
+    return new_pwd
+
+def reset_faculty_password(conn: sqlite3.Connection, faculty_id: int) -> str:
+    """
+    Generates a new password formatted as 'abcd@123' and updates the teacher in the database.
+    """
+    new_pwd = generate_password()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE faculty SET password = ? WHERE faculty_id = ?", (new_pwd, faculty_id))
+    conn.commit()
+    return new_pwd
+
+def update_all_existing_passwords_to_format(conn: sqlite3.Connection) -> dict:
+    """
+    Directly updates all existing students and subject teachers in the database whose
+    passwords do not match the 'abcd@123' format (4 letters, 1 special char, 3 numbers).
+    Leaves Head Teachers untouched.
+    """
+    cursor = conn.cursor()
+    updated_students = 0
+    updated_teachers = 0
+
+    # 1. Update students
+    cursor.execute("SELECT uid, password FROM students")
+    for row in cursor.fetchall():
+        if not is_valid_formatted_password(row["password"]):
+            new_pwd = generate_password()
+            cursor.execute("UPDATE students SET password = ? WHERE uid = ?", (new_pwd, row["uid"]))
+            updated_students += 1
+
+    # 2. Update subject teachers (except head teachers)
+    cursor.execute("SELECT faculty_id, password FROM faculty WHERE is_head_teacher = 0")
+    for row in cursor.fetchall():
+        if not is_valid_formatted_password(row["password"]):
+            new_pwd = generate_password()
+            cursor.execute("UPDATE faculty SET password = ? WHERE faculty_id = ?", (new_pwd, row["faculty_id"]))
+            updated_teachers += 1
+
+    conn.commit()
+    return {
+        "updated_students": updated_students,
+        "updated_teachers": updated_teachers
+    }
+

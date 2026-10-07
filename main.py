@@ -18,7 +18,6 @@ from cli.menus import (
     subject_teacher_menu,
     student_menu
 )
-from seed_demo_data import seed_demo_data
 
 def faculty_login_flow(conn: sqlite3.Connection, required_role: str):
     """Handles login for Head Teacher or Subject Teacher."""
@@ -92,14 +91,13 @@ def main():
             "COLLEGE ATTENDANCE MANAGEMENT SYSTEM",
             "Role-Based Access Control | SQLite Persistence | 75% Attendance Advisor"
         )
-        print(f"  {BOLD}1.{RESET} Head Teacher Portal (Dept Admin, Faculty & Student Management)")
+        print(f"  {BOLD}1.{RESET} Head Teacher / Head Master Portal (Dept Admin, CSV Seeding, Faculty & Student Management)")
         print(f"  {BOLD}2.{RESET} Subject Teacher Portal (Planned Lectures & Attendance Marking)")
         print(f"  {BOLD}3.{RESET} Student Portal (Lecture-wise Dashboard & 75% Advisor)")
         print(f"  {BOLD}4.{RESET} Setup Head Teacher for a Department")
-        print(f"  {BOLD}5.{RESET} Seed / Reset Demo Sample Data (Quick Test Mode)")
         print(f"  {BOLD}0.{RESET} Exit Application\n")
 
-        choice = prompt_int("Select an option", 0, 5)
+        choice = prompt_int("Select an option", 0, 4)
 
         if choice == 0 or choice is None:
             print_info("Thank you for using the College Attendance Management System. Goodbye!")
@@ -112,11 +110,6 @@ def main():
             student_login_flow(conn)
         elif choice == 4:
             setup_head_teacher_wizard(conn)
-        elif choice == 5:
-            confirm = prompt_str("Reset and populate demo data? (y/n)", default="y").lower()
-            if confirm == 'y':
-                seed_demo_data()
-                pause()
 
     conn.close()
 

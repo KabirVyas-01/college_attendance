@@ -30,11 +30,15 @@ class TestCollegeAttendanceSystem(unittest.TestCase):
         self.assertEqual(sorted(depts), ["CE", "CSE", "EE", "ME"])
 
     def test_password_generation(self):
-        """Test password generator produces 8-char lowercase alphanumeric string."""
+        """Test password generator produces format: 4 letters + 1 special character + 3 numbers (e.g. 'abcd@123')."""
+        from auth import is_valid_formatted_password
         for _ in range(50):
-            pwd = generate_password(8)
+            pwd = generate_password()
             self.assertEqual(len(pwd), 8)
-            self.assertTrue(all(c.isalnum() and (c.islower() or c.isdigit()) for c in pwd))
+            self.assertTrue(is_valid_formatted_password(pwd), f"Password {pwd} does not match 4 letters, 1 special char, 3 digits format.")
+            self.assertTrue(pwd[:4].isalpha() and pwd[:4].islower())
+            self.assertFalse(pwd[4].isalnum())
+            self.assertTrue(pwd[5:].isdigit())
 
     def test_faculty_and_student_id_series(self):
         """Test auto-increment ranges for faculty (5-digit) and students (6-digit)."""
@@ -137,6 +141,119 @@ class TestCollegeAttendanceSystem(unittest.TestCase):
         self.assertEqual(sub_stat["conducted"], 1)
         self.assertEqual(sub_stat["attended"], 1)
         self.assertEqual(sub_stat["current_pct"], 100.0)
+
+    def test_csv_import_by_head_teacher(self):
+        """Test Head Teacher importing students, teachers, and subjects from CSV."""
+        from services import csv_service
+
+        # 1. Import Students from CSV string
+        csv_students = """name,year
+Student Alpha,1
+Student Beta,2
+"""
+        res_st = head_teacher_service.import_students_csv(self.conn, csv_students, dept_code="CSE")
+        self.assertEqual(res_st["count"], 2)
+        self.assertEqual(res_st["records"][0]["uid"], 100000)
+        self.assertEqual(res_st["records"][0]["name"], "Student Alpha")
+        self.assertEqual(res_st["records"][1]["uid"], 100001)
+
+        # 2. Import Faculty from CSV string
+        csv_faculty = """name,is_head_teacher
+Prof. John Doe,1
+Dr. Jane Smith,0
+"""
+        res_fac = head_teacher_service.import_teachers_csv(self.conn, csv_faculty, dept_code="CSE")
+        self.assertEqual(res_fac["count"], 2)
+        self.assertEqual(res_fac["records"][0]["faculty_id"], 10001)
+        self.assertEqual(res_fac["records"][0]["is_head_teacher"], 1)
+        self.assertEqual(res_fac["records"][1]["faculty_id"], 10002)
+
+        # 3. Import Subjects from CSV string
+        csv_subjects = """subject_name,assigned_teacher_id,total_planned_lectures
+Algorithms,10002,42
+Database Systems,10001,36
+"""
+        res_sub = head_teacher_service.import_subjects_csv(self.conn, csv_subjects, dept_code="CSE")
+        self.assertEqual(res_sub["count"], 2)
+        self.assertEqual(res_sub["records"][0]["subject_name"], "Algorithms")
+        self.assertEqual(res_sub["records"][0]["total_planned_lectures"], 42)
+
+        # 4. Test Export
+        exported_st = head_teacher_service.export_department_csv(self.conn, "students", "CSE")
+        self.assertIn("Student Alpha", exported_st)
+        self.assertIn("Student Beta", exported_st)
+
+    def test_seed_demo_data_from_csv(self):
+        """Test seeding department data from actual data/ CSV files into database."""
+        from services import head_teacher_service
+        from config import DATA_DIR
+
+        # Run seed_department_from_csv using Head Teacher service
+        res = head_teacher_service.seed_department_from_csv(self.conn, "CSE")
+        self.assertGreaterEqual(res["teachers"]["count"], 1)
+        self.assertGreaterEqual(res["subjects"]["count"], 1)
+        self.assertGreaterEqual(res["students"]["count"], 1)
+
+        # Query and assert records in test DB
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT COUNT(*) as cnt FROM faculty WHERE dept_code = 'CSE'")
+        self.assertGreaterEqual(cursor.fetchone()["cnt"], 4)
+
+        cursor.execute("SELECT COUNT(*) as cnt FROM subjects WHERE dept_code = 'CSE'")
+        self.assertGreaterEqual(cursor.fetchone()["cnt"], 4)
+
+        cursor.execute("SELECT COUNT(*) as cnt FROM students WHERE dept_code = 'CSE'")
+        self.assertGreaterEqual(cursor.fetchone()["cnt"], 3)
+
+        cursor.execute("SELECT COUNT(*) as cnt FROM attendance")
+        self.assertGreaterEqual(cursor.fetchone()["cnt"], 180)
+
+    def test_password_change_and_reset_in_database(self):
+        """Test changing, resetting, and migrating existing passwords in the database."""
+        from auth import (
+            change_student_password,
+            change_faculty_password,
+            reset_student_password,
+            reset_faculty_password,
+            update_all_existing_passwords_to_format,
+            is_valid_formatted_password
+        )
+
+        # Create teacher and student
+        ht_id = head_teacher_service.create_head_teacher(self.conn, "Prof. Turing", "admin123", "CSE")
+        teach = head_teacher_service.add_subject_teacher(self.conn, "Dr. Lovelace", "CSE")
+        stud = head_teacher_service.add_student(self.conn, "Alice", "CSE", 2)
+
+        # 1. Change password with valid format
+        self.assertTrue(change_student_password(self.conn, stud["uid"], "pass@789"))
+        self.assertTrue(change_faculty_password(self.conn, teach["faculty_id"], "work#456"))
+
+        # 2. Reject invalid format
+        with self.assertRaises(ValueError):
+            change_student_password(self.conn, stud["uid"], "invalidpass")
+        with self.assertRaises(ValueError):
+            change_faculty_password(self.conn, teach["faculty_id"], "short1")
+
+        # 3. Head Teacher reset methods
+        new_stud_pwd = head_teacher_service.reset_student_password_in_dept(self.conn, stud["uid"], "CSE")
+        self.assertTrue(is_valid_formatted_password(new_stud_pwd))
+
+        new_teach_pwd = head_teacher_service.reset_faculty_password_in_dept(self.conn, teach["faculty_id"], "CSE")
+        self.assertTrue(is_valid_formatted_password(new_teach_pwd))
+
+        # 4. Migrate old passwords in database
+        cursor = self.conn.cursor()
+        cursor.execute("UPDATE students SET password = 'oldpassword' WHERE uid = ?", (stud["uid"],))
+        cursor.execute("UPDATE faculty SET password = 'oldteach' WHERE faculty_id = ?", (teach["faculty_id"],))
+        self.conn.commit()
+
+        stats = update_all_existing_passwords_to_format(self.conn)
+        self.assertEqual(stats["updated_students"], 1)
+        self.assertEqual(stats["updated_teachers"], 1)
+
+        # Verify head teacher password was untouched
+        cursor.execute("SELECT password FROM faculty WHERE faculty_id = ?", (ht_id,))
+        self.assertEqual(cursor.fetchone()["password"], "admin123")
 
 if __name__ == "__main__":
     unittest.main()

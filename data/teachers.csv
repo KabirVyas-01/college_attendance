@@ -1,0 +1,9 @@
+faculty_id,name,password,dept_code,is_head_teacher
+10001,Prof. Alan Turing,admin123,CSE,1
+10002,Dr. Ada Lovelace,teac@102,CSE,0
+10003,Prof. Claude Shannon,teac@103,CSE,0
+10004,Dr. Grace Hopper,teac@104,CSE,0
+20001,Prof. Isambard Brunel,admin123,CE,1
+20002,Dr. Gustave Eiffel,teac@202,CE,0
+30001,Prof. James Watt,admin123,ME,1
+40001,Prof. Nikola Tesla,admin123,EE,1

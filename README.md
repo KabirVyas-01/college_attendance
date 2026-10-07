@@ -58,14 +58,20 @@ college_attendance/
 ├── database.py               # SQLite schema & foreign-key connection helper
 ├── auth.py                   # Secure password generation & authentication
 ├── calculator.py             # Attendance % formulas & 75% advisor logic
+├── data/                     # CSV files for teachers, subjects, students & attendance
+│   ├── teachers.csv
+│   ├── subjects.csv
+│   ├── students.csv
+│   └── attendance.csv
 ├── services/
 │   ├── head_teacher_service.py    # Dept admin, faculty, subject & student management
 │   ├── subject_teacher_service.py # Planned lectures, attendance marking & sheets
-│   └── student_service.py         # Student dashboard & lecture history queries
+│   ├── student_service.py         # Student dashboard & lecture history queries
+│   └── csv_service.py             # CSV parsing, bulk import/export & demo data loading
 ├── cli/
 │   ├── ui_helpers.py         # Dynamic ASCII tables, colors, headers, and input prompts
-│   └── menus.py              # Interactive role-based CLI workflows
-├── seed_demo_data.py         # Realistic sample data for instant testing
+│   └── menus.py              # Interactive role-based CLI workflows with CSV tools
+├── website/                  # Flask Web Application with Head Teacher CSV UI
 ├── test_system.py            # Automated unit and integration test suite
 ├── main.py                   # Main runnable application entry point
 └── README.md                 # System documentation
@@ -94,9 +100,9 @@ python main.py
 
 | Role | Name | ID / UID | Password | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Head Teacher (CSE)** | Prof. Alan Turing | `10001` | `admin123` | Full CSE Dept Admin |
-| **Subject Teacher (DSA)** | Dr. Ada Lovelace | `10002` | `teach123` | Teaches Data Structures |
-| **Subject Teacher (OS)** | Prof. Claude Shannon | `10003` | `teach123` | Teaches Operating Systems |
-| **Student 1** | Alice Smith | `100000` | `stud123` | Mixed attendance (90% DSA, 75% OS, 50% DBMS) |
-| **Student 2** | Bob Jones | `100001` | `stud123` | Good attendance (60% DSA, 80% OS, 95% DBMS) |
-| **Student 3** | Charlie Brown | `100002` | `stud123` | High attendance (100% DSA, 90% OS, 85% DBMS) |
+| **Head Teacher (CSE)** | Prof. Alan Turing | `10001` | `admin123` | Full CSE Dept Admin (Head Master) |
+| **Subject Teacher (DSA)** | Dr. Ada Lovelace | `10002` | `teac@102` | Teaches Data Structures |
+| **Subject Teacher (OS)** | Prof. Claude Shannon | `10003` | `teac@103` | Teaches Operating Systems |
+| **Student 1** | Alice Smith | `100000` | `stud@100` | Mixed attendance (90% DSA, 75% OS, 50% DBMS) |
+| **Student 2** | Bob Jones | `100001` | `stud@101` | Good attendance (60% DSA, 80% OS, 95% DBMS) |
+| **Student 3** | Charlie Brown | `100002` | `stud@102` | High attendance (100% DSA, 90% OS, 85% DBMS) |
